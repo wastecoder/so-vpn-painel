@@ -2,7 +2,11 @@
 
 O Painel de Gestão de VPN tem como objetivo permitir que cada funcionário da empresa tenha seu próprio certificado de VPN, facilitando a emissão, o download e a revogação de certificados de forma segura e individualizada. O sistema foi projetado para evitar o uso de certificados compartilhados e segue boas práticas de segurança, como controle de acesso e segmentação de rede.
 
+Dentro deste repositório, estão incluídos todos os arquivos necessários para configurar as três VMs utilizadas no projeto. Eles estão organizados em pastas nomeadas conforme suas funções na arquitetura: `OpenVPN`, `Database` e `Firewall`. Cada pasta contém os scripts, configurações e instruções específicas para a respectiva máquina.
+
+
 ---
+
 
 ## Arquitetura da Solução
 
@@ -32,7 +36,9 @@ O sistema utiliza três máquinas virtuais (VMs), com a seguinte organização d
 
 > **Importante:** Todos os outros acessos externos são bloqueados para proteger os servidores internos.
 
+
 ---
+
 
 ## Funcionalidades Principais
 
@@ -49,7 +55,9 @@ O sistema utiliza três máquinas virtuais (VMs), com a seguinte organização d
 -   **Login e autenticação:** Sistema de login protegido, com senhas criptografadas via `password_hash()`.
 -   **Proteção de páginas:** Endpoints restritos apenas para usuários autenticados.
 
+
 ---
+
 
 ## Regras de Segurança e Firewall
 
@@ -59,7 +67,9 @@ O sistema utiliza três máquinas virtuais (VMs), com a seguinte organização d
 -   **Permissão apenas para tráfego essencial:** Apenas HTTP/HTTPS, VPN (UDP 1194) e SSH (limitado à rede interna) são aceitos.
 -   **Bloqueio de tráfego externo desnecessário:** Nenhuma das máquinas internas (OpenVPN e Database) tem acesso direto à internet.
 
+
 ---
+
 
 ## Pré-requisitos de cada máquina
 
@@ -69,6 +79,7 @@ O sistema utiliza três máquinas virtuais (VMs), com a seguinte organização d
 -   Login padrão de todas as VMs:
     -   **Usuário:** `usuario`
     -   **Senha:** `123456`
+
 
 ### Firewall:
 
@@ -92,6 +103,8 @@ iface enp0s3 inet static
 ```
 
 -   Configurar as regras de firewall em `/etc/nftables.conf` com as políticas de bloqueio e NAT.
+-   Um exemplo funcional do arquivo `nftables.conf` em: [`Firewall/nftables.conf`](./Firewall/nftables.conf)
+
 
 ### Open VPN:
 
@@ -112,20 +125,40 @@ iface enp0s3 inet static
     gateway 10.0.0.1
 ```
 
--   Instalar Apache, PHP e o OpenVPN.
--   Colocar os arquivos do painel em `/var/www/html/`.
+-   Instalar Apache e o PHP.
+-   Organize os arquivos da seguinte forma:
+    -   Coloque os arquivos PHP em: `/var/www/html/`
+    -   Coloque os scripts Python em: `/opt/vpn-cert-generator/`
+
+> A estrutura completa dessas pastas está descrita na seção [**Estrutura de Arquivos do Projeto**](#estrutura-de-arquivos-do-projeto).
+
 
 ### Database (MySQL):
 
 -   Configurar rede (IP: `10.0.0.20`, no mesmo padrão do OpenVPN).
 -   Instalar o MySQL Server.
 -   Criar o banco de dados e as tabelas necessárias para usuários e certificados.
+-   O primeiro administrador (ADM) deve ser inserido manualmente no banco de dados.
+    -   A senha precisa ser armazenada já criptografada.
+    -   Utilize a função `password_hash()` com o algoritmo `PASSWORD_DEFAULT` para gerar o hash.
+    -   Você pode usar ferramentas online como [onlinephp.io](https://www.onlinephp.io/password-hash) para gerar o hash da senha desejada.
+-   Para evitar lentidão, edite o arquivo de configuração do MySQL e descomente a linha `skip-name-resolve`, depois reinicie o serviço:
+
+```bash
+sudo nano /etc/mysql/mariadb.conf.d/50-server.cnf
+sudo systemctl restart mariadb
+```
+
 
 ### Download das VMs prontas
 
-Caso queira, as 3 VMs prontas estão disponíveis neste link:
+Caso queira, as três VMs prontas estão disponíveis neste link:
 
 👉 [Download das VMs - Google Drive](https://drive.google.com/drive/folders/1MhDxd-Ku4oU6KndtwsuQVd44Br34tUGs)
+
+Para uma documentação mais detalhada sobre a configuração e uso das VMs, consulte o seguinte documento:
+
+👉 [Documentação detalhada - Google Docs](https://docs.google.com/document/d/1xHnlYRPQnkmFw2iPsE0laCxoaV1WCEojbLcqnLdihvY/edit?tab=t.0)
 
 
 ---
@@ -152,11 +185,15 @@ http://<IP_DO_FIREWALL>/index.php
 -   **Usuário:** `admin@gmail.com`
 -   **Senha:** `Admin123!`
 
+
 ---
+
 
 ## Estrutura de Arquivos do Projeto
 
-Abaixo está a organização dos arquivos do painel dentro da máquina OpenVPN, localizado em `/var/www/html/`:
+Abaixo estão as duas pastas principais da máquina OpenVPN:
+
+### 1. /var/www/html/ (Painel Web em PHP)
 
 ```
 /var/www/html/
@@ -179,6 +216,20 @@ Abaixo está a organização dos arquivos do painel dentro da máquina OpenVPN, 
     ├── usuarios.json         # Usuários (ADMs)
     └── F5RYA12_cert.zip      # Exemplo de certificado gerado
 ```
+
+
+### 2. /opt/vpn-cert-generator/ (Scripts em Python)
+
+```
+/opt/vpn-cert-generator/
+├── gerar_certificado.py      # Gera os arquivos .ovpn, .crt, .key e o .zip
+├── deletar_certificado.py    # Exclui certificados e arquivos relacionados
+├── certs/                    # Diretório temporário de certificados gerados
+└── logs/exec.log             # Log das execuções (geração e exclusão)
+```
+
+> Esses scripts são executados pelo PHP via chamadas de sistema (`shell_exec`) e já possuem as permissões adequadas.
+
 
 ---
 
